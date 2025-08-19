@@ -1,173 +1,143 @@
-<!DOCTYPE html>
-<html lang="zh">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <title>魔法天气播报员</title>
   <style>
-    body {
-      margin: 0;
-      font-family: "Arial", sans-serif;
-      background: linear-gradient(to bottom, #87ceeb, #f0f9ff);
-      color: #333;
-      text-align: center;
-      padding: 20px;
-    }
-    header {
-      font-size: 1.8em;
-      font-weight: bold;
-      margin-bottom: 20px;
-    }
-    #weather-box {
-      background: white;
-      padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .section {
-      margin-top: 20px;
-    }
-    .placeholder {
-      background: #eee;
-      border: 2px dashed #ccc;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 10px auto;
-      max-width: 320px;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 1em;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    video {
-      max-width: 100%;
-      border-radius: 10px;
-    }
-    img {
-      max-width: 100%;
-      border-radius: 10px;
-    }
-    a {
-      display: inline-block;
-      padding: 10px 15px;
-      background: #28a745;
-      color: white;
-      border-radius: 8px;
-      text-decoration: none;
-    }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
+    header{padding:18px 16px;background:#5aa2ff;color:#fff;font-weight:700;text-align:center}
+    .card{margin:14px auto;max-width:560px;background:#fff;border-radius:14px;padding:16px;
+      box-shadow:0 6px 18px rgba(0,0,0,.08)}
+    .muted{color:#667085}
+    .btn{display:inline-block;background:#2563eb;color:#fff;border:none;border-radius:10px;
+      padding:10px 16px;font-weight:600}
+    video,img{max-width:100%;border-radius:12px}
+    .row{display:flex;gap:10px;align-items:center}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   </style>
 </head>
 <body>
   <header>🌤 魔法天气播报员</header>
 
-  <!-- 天气展示 -->
-  <div id="weather-box">
-    <p id="location">正在定位中...</p>
-    <p id="weather">天气数据加载中...</p>
-    <p id="tips">✨ 等待魔法播报...</p>
+  <div class="card">
+    <div id="loc" class="muted">正在请求定位权限…</div>
+    <div id="wx" style="margin-top:6px">天气数据加载中…</div>
+    <div id="tip" style="margin-top:8px">✨ 等待魔法播报…</div>
+    <div id="err" style="margin-top:8px;color:#e11d48"></div>
+    <div style="margin-top:10px">
+      <button class="btn" id="retry">重新获取定位</button>
+    </div>
   </div>
 
-  <!-- NFC 功能占位 -->
-  <div class="section">
-    <h3>NFC 功能</h3>
-    <div class="placeholder">📱 这里是 NFC 触碰启动的占位区域</div>
-  </div>
-
-  <!-- 视频播报 -->
-  <div class="section">
-    <h3>视频播报</h3>
-    <video id="weather-video" controls>
-      <source src="video1.mp4" type="video/mp4">
+  <div class="card">
+    <h3>🎬 视频播报</h3>
+    <video id="v" controls playsinline>
+      <source src="video1.mp4" type="video/mp4"/>
       您的浏览器不支持视频播放
     </video>
   </div>
 
-  <!-- 图片 / AR 占位 -->
-  <div class="section">
-    <h3>AR 天气动画</h3>
-    <img src="1.png" alt="天气图片占位">
-    <br><br>
-    <!-- 仅 iOS Safari 支持 USDZ AR -->
-    <a rel="ar" href="model.usdz">📱 点击进入 AR 模型</a>
+  <div class="card">
+    <h3>🌀 天气图片 / AR</h3>
+    <img src="1.png" alt="天气占位图"/>
+    <p class="muted" style="margin:8px 0 12px">iOS Safari 点击下方进入 AR（USDZ）</p>
+    <a class="btn" rel="ar" href="model.usdz">进入 AR</a>
   </div>
 
-  <button onclick="reloadWeather()">🔄 刷新天气</button>
+  <div class="card">
+    <h3>🧪 调试信息</h3>
+    <div class="row"><div class="muted">坐标：</div><code id="xy" class="mono">-</code></div>
+    <div class="row"><div class="muted">请求URL：</div><code id="req" class="mono">-</code></div>
+    <div class="row"><div class="muted">HTTP：</div><code id="http" class="mono">-</code></div>
+    <div class="row"><div class="muted">返回码：</div><code id="code" class="mono">-</code></div>
+  </div>
 
-  <script>
-    const API_KEY = "6b643f91d5b34f74b75d835a3e72377f"; // 替换为你的和风天气 API Key
-    const WEATHER_URL = "https://devapi.qweather.com/v7/weather/now";
+<script>
+/** ========= 必填配置 ========= */
+const API_HOST = 'https://m42r6wma94.re.qweatherapi.com'; // ← 用你控制台里的 API Host
+const API_KEY  = '6b643f91d5b34f74b75d835a3e72377f';                      // ← 用你控制台生成的 API Key
+/** ========================== */
 
-    // 魔法文案库
-    const weatherTips = {
-      "晴": ["今天阳光明媚，适合出门走走 🌞", "晴空万里，心情也跟着明亮起来！"],
-      "雨": ["记得带伞哦，别让自己淋湿啦 ☔", "小雨滋润大地，空气更清新～"],
-      "雪": ["飘雪的日子最浪漫 ❄", "出门注意保暖，赏雪也要注意安全～"],
-      "阴": ["阴天有点小忧郁，来杯咖啡提提神 ☁", "天空灰蒙蒙，但心情要明亮～"],
-      "默认": ["天气不错，适合任何冒险 ✨", "无论天气如何，今天也要加油！"]
-    };
+// 天气 → 文案映射
+const tipsMap = {
+  '晴': ['今天阳光明媚，适合出门走走 🌞', '晴空万里，心情也跟着明亮起来！'],
+  '雨': ['记得带伞哦，别让自己淋湿啦 ☔', '小雨滋润大地，空气更清新～'],
+  '雪': ['飘雪的日子最浪漫 ❄', '出门注意保暖，赏雪也要注意安全～'],
+  '阴': ['阴天有点小忧郁 ☁，也要元气满满～'],
+  '多云': ['云朵精灵出来啦～'],
+  '默认': ['无论天气如何，今天也要加油！✨']
+};
 
-    // 页面加载时获取天气
-    window.onload = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(success, error);
-      } else {
-        document.getElementById("location").innerText = "❌ 当前浏览器不支持定位";
-        loadMockWeather();
-      }
-    };
+const $ = (id)=>document.getElementById(id);
+$('retry').addEventListener('click', getLocation);
 
-    function success(pos) {
+function getLocation(){
+  $('err').textContent='';
+  if(!('geolocation' in navigator)){
+    $('loc').textContent='❌ 设备不支持定位';
+    return useMock('不支持定位');
+  }
+  $('loc').textContent='📍 正在定位…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
       const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      fetch(`${WEATHER_URL}?location=${lon},${lat}&key=${API_KEY}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.code === "200") {
-            const weather = data.now.text;
-            const temp = data.now.temp;
-            document.getElementById("location").innerText = `📍 当前坐标：${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-            document.getElementById("weather").innerText = `实时天气：${weather}，温度：${temp}℃`;
+      const lon = pos.coords.longitude; // 和风 location=经度,纬度
+      $('xy').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      fetchWeather(lon, lat);
+    },
+    err => {
+      $('loc').textContent='❌ 定位失败，已使用默认城市';
+      $('err').textContent=`Geolocation error: ${err.code} ${err.message||''}`;
+      useMock('定位失败');
+    },
+    {enableHighAccuracy:true, timeout:10000, maximumAge:30000}
+  );
+}
 
-            // 随机魔法文案
-            const tips = weatherTips[weather] || weatherTips["默认"];
-            const randomTip = tips[Math.floor(Math.random() * tips.length)];
-            document.getElementById("tips").innerText = "🔮 " + randomTip;
-          } else {
-            loadMockWeather();
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          loadMockWeather();
-        });
+async function fetchWeather(lon, lat){
+  const url = `${API_HOST}/v7/weather/now?location=${lon},${lat}`;
+  $('req').textContent = url;
+
+  try{
+    const res = await fetch(url, {
+      method:'GET',
+      headers: { 'X-QW-Api-Key': API_KEY }   // 关键：用 Header 传 Key
+    });
+    $('http').textContent = `HTTP ${res.status}`;
+    if(!res.ok) throw new Error('http '+res.status);
+
+    const data = await res.json();
+    $('code').textContent = data.code || '-';
+
+    if(data.code !== '200'){
+      throw new Error('qweather code '+data.code);
     }
 
-    function error() {
-      document.getElementById("location").innerText = "❌ 定位失败，使用模拟数据";
-      loadMockWeather();
-    }
+    const now = data.now;
+    $('loc').textContent = `📍 已定位，实时天气：${now.text} ${now.temp}℃`;
+    $('wx').textContent  = `体感 ${now.feelsLike}℃ · 风 ${now.windDir}${now.windScale}级 · 湿度 ${now.humidity}%`;
 
-    // 模拟天气数据
-    function loadMockWeather() {
-      document.getElementById("weather").innerText = "实时天气：晴，温度：26℃";
-      const tips = weatherTips["晴"];
-      const randomTip = tips[Math.floor(Math.random() * tips.length)];
-      document.getElementById("tips").innerText = "🔮 " + randomTip;
-    }
+    const arr = tipsMap[now.text] || tipsMap['默认'];
+    $('tip').textContent = '🔮 ' + arr[Math.floor(Math.random()*arr.length)];
 
-    // 刷新按钮
-    function reloadWeather() {
-      window.location.reload();
-    }
-  </script>
+    // 如需根据天气切换视频/图片，可在这里判断 now.icon/now.text 来替换 src
+    // 例：if(now.text.includes('雨')) { document.getElementById('v').src='rain.mp4'; }
+  }catch(e){
+    $('err').textContent = '请求失败：'+ e.message;
+    return useMock('接口失败');
+  }
+}
+
+function useMock(reason){
+  $('wx').textContent = '（模拟）实时天气：晴 · 26℃';
+  const arr = tipsMap['晴']; $('tip').textContent = '🔮 '+ arr[Math.floor(Math.random()*arr.length)];
+  $('http').textContent = '-';
+  $('code').textContent = '-';
+  $('req').textContent = `mock (${reason})`;
+}
+
+getLocation();
+</script>
 </body>
 </html>
