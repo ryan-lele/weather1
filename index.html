@@ -1,143 +1,114 @@
-<!doctype html>
-<html lang="zh-CN">
+<!DOCTYPE html>
+<html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>魔法天气播报员</title>
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;}
-    header{padding:18px 16px;background:#5aa2ff;color:#fff;font-weight:700;text-align:center}
-    .card{margin:14px auto;max-width:560px;background:#fff;border-radius:14px;padding:16px;
-      box-shadow:0 6px 18px rgba(0,0,0,.08)}
-    .muted{color:#667085}
-    .btn{display:inline-block;background:#2563eb;color:#fff;border:none;border-radius:10px;
-      padding:10px 16px;font-weight:600}
-    video,img{max-width:100%;border-radius:12px}
-    .row{display:flex;gap:10px;align-items:center}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: linear-gradient(to bottom, #87CEFA, #f0f8ff);
+      margin: 0;
+      padding: 20px;
+    }
+    h1 { color: #333; }
+    #location, #weather, #extra {
+      font-size: 18px;
+      margin: 10px 0;
+    }
+    .media-container {
+      margin-top: 20px;
+    }
+    video, img {
+      width: 90%;
+      max-width: 400px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .ar-button {
+      display: inline-block;
+      margin-top: 15px;
+      padding: 12px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-  <header>🌤 魔法天气播报员</header>
+  <h1>🌤 魔法天气播报员</h1>
+  <p id="location">📍 正在定位中...</p>
+  <p id="weather">⏳ 正在获取天气...</p>
+  <p id="extra"></p>
 
-  <div class="card">
-    <div id="loc" class="muted">正在请求定位权限…</div>
-    <div id="wx" style="margin-top:6px">天气数据加载中…</div>
-    <div id="tip" style="margin-top:8px">✨ 等待魔法播报…</div>
-    <div id="err" style="margin-top:8px;color:#e11d48"></div>
-    <div style="margin-top:10px">
-      <button class="btn" id="retry">重新获取定位</button>
-    </div>
+  <div class="media-container">
+    <h2>🎬 今日推荐</h2>
+    <video id="video" src="video1.mp4" controls></video>
+    <img id="weatherImg" src="1.png" alt="天气图示">
   </div>
 
-  <div class="card">
-    <h3>🎬 视频播报</h3>
-    <video id="v" controls playsinline>
-      <source src="video1.mp4" type="video/mp4"/>
-      您的浏览器不支持视频播放
-    </video>
-  </div>
+  <a rel="ar" href="model.usdz" class="ar-button">🚀 打开AR模型</a>
 
-  <div class="card">
-    <h3>🌀 天气图片 / AR</h3>
-    <img src="1.png" alt="天气占位图"/>
-    <p class="muted" style="margin:8px 0 12px">iOS Safari 点击下方进入 AR（USDZ）</p>
-    <a class="btn" rel="ar" href="model.usdz">进入 AR</a>
-  </div>
+  <script>
+    const apiKey = "6b643f91d5b34f74b75d835a3e72377f";
 
-  <div class="card">
-    <h3>🧪 调试信息</h3>
-    <div class="row"><div class="muted">坐标：</div><code id="xy" class="mono">-</code></div>
-    <div class="row"><div class="muted">请求URL：</div><code id="req" class="mono">-</code></div>
-    <div class="row"><div class="muted">HTTP：</div><code id="http" class="mono">-</code></div>
-    <div class="row"><div class="muted">返回码：</div><code id="code" class="mono">-</code></div>
-  </div>
+    function fetchWeather(lat, lon) {
+      // 先查城市名
+      const geoUrl = `https://geoapi.qweather.com/v2/city/lookup?location=${lon},${lat}`;
+      fetch(geoUrl, {
+        headers: { "X-QW-Api-Key": apiKey }
+      })
+      .then(res => res.json())
+      .then(geoData => {
+        let locationName = "未知位置";
+        if (geoData && geoData.location && geoData.location.length > 0) {
+          const loc = geoData.location[0];
+          locationName = `${loc.adm1} ${loc.adm2} ${loc.name}`;
+        }
+        document.getElementById("location").textContent = "📍 当前位置：" + locationName;
 
-<script>
-/** ========= 必填配置 ========= */
-const API_HOST = 'https://m42r6wma94.re.qweatherapi.com'; // ← 用你控制台里的 API Host
-const API_KEY  = '6b643f91d5b34f74b75d835a3e72377f';                      // ← 用你控制台生成的 API Key
-/** ========================== */
-
-// 天气 → 文案映射
-const tipsMap = {
-  '晴': ['今天阳光明媚，适合出门走走 🌞', '晴空万里，心情也跟着明亮起来！'],
-  '雨': ['记得带伞哦，别让自己淋湿啦 ☔', '小雨滋润大地，空气更清新～'],
-  '雪': ['飘雪的日子最浪漫 ❄', '出门注意保暖，赏雪也要注意安全～'],
-  '阴': ['阴天有点小忧郁 ☁，也要元气满满～'],
-  '多云': ['云朵精灵出来啦～'],
-  '默认': ['无论天气如何，今天也要加油！✨']
-};
-
-const $ = (id)=>document.getElementById(id);
-$('retry').addEventListener('click', getLocation);
-
-function getLocation(){
-  $('err').textContent='';
-  if(!('geolocation' in navigator)){
-    $('loc').textContent='❌ 设备不支持定位';
-    return useMock('不支持定位');
-  }
-  $('loc').textContent='📍 正在定位…';
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude; // 和风 location=经度,纬度
-      $('xy').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
-      fetchWeather(lon, lat);
-    },
-    err => {
-      $('loc').textContent='❌ 定位失败，已使用默认城市';
-      $('err').textContent=`Geolocation error: ${err.code} ${err.message||''}`;
-      useMock('定位失败');
-    },
-    {enableHighAccuracy:true, timeout:10000, maximumAge:30000}
-  );
-}
-
-async function fetchWeather(lon, lat){
-  const url = `${API_HOST}/v7/weather/now?location=${lon},${lat}`;
-  $('req').textContent = url;
-
-  try{
-    const res = await fetch(url, {
-      method:'GET',
-      headers: { 'X-QW-Api-Key': API_KEY }   // 关键：用 Header 传 Key
-    });
-    $('http').textContent = `HTTP ${res.status}`;
-    if(!res.ok) throw new Error('http '+res.status);
-
-    const data = await res.json();
-    $('code').textContent = data.code || '-';
-
-    if(data.code !== '200'){
-      throw new Error('qweather code '+data.code);
+        // 再查天气
+        const weatherUrl = `https://devapi.qweather.com/v7/weather/now?location=${lon},${lat}`;
+        return fetch(weatherUrl, {
+          headers: { "X-QW-Api-Key": apiKey }
+        });
+      })
+      .then(res => res.json())
+      .then(weatherData => {
+        if (weatherData && weatherData.now) {
+          const now = weatherData.now;
+          document.getElementById("weather").textContent =
+            `实时天气：${now.text} ${now.temp}℃`;
+          document.getElementById("extra").textContent =
+            `体感 ${now.feelsLike}℃ · 风 ${now.windDir}${now.windScale}级 · 湿度 ${now.humidity}%`;
+        }
+      })
+      .catch(err => {
+        console.error("获取信息失败:", err);
+        document.getElementById("weather").textContent = "❌ 获取天气失败";
+      });
     }
 
-    const now = data.now;
-    $('loc').textContent = `📍 已定位，实时天气：${now.text} ${now.temp}℃`;
-    $('wx').textContent  = `体感 ${now.feelsLike}℃ · 风 ${now.windDir}${now.windScale}级 · 湿度 ${now.humidity}%`;
-
-    const arr = tipsMap[now.text] || tipsMap['默认'];
-    $('tip').textContent = '🔮 ' + arr[Math.floor(Math.random()*arr.length)];
-
-    // 如需根据天气切换视频/图片，可在这里判断 now.icon/now.text 来替换 src
-    // 例：if(now.text.includes('雨')) { document.getElementById('v').src='rain.mp4'; }
-  }catch(e){
-    $('err').textContent = '请求失败：'+ e.message;
-    return useMock('接口失败');
-  }
-}
-
-function useMock(reason){
-  $('wx').textContent = '（模拟）实时天气：晴 · 26℃';
-  const arr = tipsMap['晴']; $('tip').textContent = '🔮 '+ arr[Math.floor(Math.random()*arr.length)];
-  $('http').textContent = '-';
-  $('code').textContent = '-';
-  $('req').textContent = `mock (${reason})`;
-}
-
-getLocation();
-</script>
+    // 获取地理位置
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
+          fetchWeather(lat, lon);
+        },
+        err => {
+          document.getElementById("location").textContent = "⚠️ 定位失败，请检查权限";
+          console.error(err);
+        }
+      );
+    } else {
+      document.getElementById("location").textContent = "⚠️ 设备不支持定位";
+    }
+  </script>
 </body>
 </html>
