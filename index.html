@@ -2,112 +2,115 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>魔法天气播报员</title>
+  <title>天气 + AR Demo</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      background: #f0f8ff;
-      margin: 0;
+      background: #f2f2f2;
       padding: 20px;
     }
-    #status { font-size: 18px; margin: 10px 0; }
-    #weather { margin-top: 15px; font-size: 16px; }
-    button {
-      margin: 10px; padding: 10px 20px;
-      border: none; border-radius: 8px;
-      background: #4cafef; color: white;
-      font-size: 16px; cursor: pointer;
+    #status {
+      font-size: 16px;
+      margin: 10px;
+      color: #666;
     }
-    button:hover { background: #2196f3; }
-    video, img { max-width: 90%; margin-top: 15px; border-radius: 12px; }
+    #weather {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    video, img {
+      max-width: 90%;
+      margin-top: 15px;
+      border-radius: 12px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #0078d7;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h2>🌤 魔法天气播报员</h2>
-  <div id="status">📍 正在定位中...</div>
-  <div id="weather">⏳ 正在获取天气数据...</div>
+  <h2>📍 天气 + AR Demo</h2>
+  <div id="status">正在定位中...</div>
+  <div id="weather"></div>
 
-  <button onclick="showImage()">显示天气图片</button>
-  <button onclick="playVideo()">播放天气视频</button>
-  <button onclick="openAR()">查看AR模型</button>
+  <!-- 占位的图片和视频 -->
+  <img src="1.png" alt="天气动画图">
+  <video src="video1.mp4" controls></video>
 
-  <div id="media"></div>
+  <!-- iOS Safari 可直接打开 AR 模型 -->
+  <button onclick="openAR()">打开 AR 模型</button>
 
   <script>
-    const cityApiKey = "b93018f8f0ee4133ac47eb4ad544da06"; // city/lookup 用
-    const weatherApiKey = "6b643f91d5b34f74b75d835a3e72377f"; // weather/now 用
-
-    function getLocation() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(success, error);
-      } else {
-        document.getElementById("status").innerText = "❌ 浏览器不支持定位";
-      }
-    }
-
-    async function success(position) {
-      const lat = position.coords.latitude.toFixed(5);
-      const lon = position.coords.longitude.toFixed(5);
-      document.getElementById("status").innerText = `📍 已定位：(${lat}, ${lon})`;
-
-      // 先获取城市名
-      let city = "未知";
+    async function getWeather(lat, lon) {
       try {
-        const cityRes = await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${lon},${lat}&key=${cityApiKey}`);
+        // 1. 获取城市名
+        const cityRes = await fetch(
+          `https://geoapi.qweather.com/v2/city/lookup?location=${lon},${lat}&key=b93018f8f0ee4133ac47eb4ad544da06`
+        );
         const cityData = await cityRes.json();
+        let cityName = "未知城市";
         if (cityData && cityData.location && cityData.location.length > 0) {
-          city = cityData.location[0].name;
+          cityName = cityData.location[0].name;
         }
-      } catch (e) {
-        console.error("城市查询失败:", e);
-      }
 
-      // 再获取天气
-      try {
-        const weatherRes = await fetch(`https://devapi.qweather.com/v7/weather/now?location=${lon},${lat}`, {
-          headers: { "X-QW-Api-Key": weatherApiKey }
-        });
+        // 2. 获取天气
+        const weatherRes = await fetch(
+          `https://devapi.qweather.com/v7/weather/now?location=${lon},${lat}&key=6b643f91d5b34f74b75d835a3e72377f`
+        );
         const weatherData = await weatherRes.json();
+        console.log("天气返回:", weatherData);
+
         if (weatherData && weatherData.now) {
-          const w = weatherData.now;
-          document.getElementById("weather").innerText =
-            `📍 ${city} · 实时天气：${w.text} ${w.temp}℃\n` +
-            `体感 ${w.feelsLike}℃ · 风 ${w.windDir}${w.windScale}级 · 湿度 ${w.humidity}%`;
+          const now = weatherData.now;
+          document.getElementById("weather").innerHTML = `
+            <h3>${cityName}</h3>
+            <p>实时天气：${now.text} ${now.temp}℃</p>
+            <p>体感温度：${now.feelsLike}℃</p>
+            <p>风向：${now.windDir} ${now.windScale}级</p>
+            <p>湿度：${now.humidity}%</p>
+          `;
         } else {
           document.getElementById("weather").innerText = "❌ 获取天气失败";
         }
       } catch (e) {
-        console.error("天气查询失败:", e);
+        console.error("天气获取错误:", e);
         document.getElementById("weather").innerText = "❌ 获取天气失败";
       }
     }
 
-    function error(err) {
-      document.getElementById("status").innerText = "❌ 定位失败: " + err.message;
-    }
-
-    // 显示天气图片
-    function showImage() {
-      document.getElementById("media").innerHTML = `<img src="1.png" alt="天气图">`;
-    }
-
-    // 播放天气视频
-    function playVideo() {
-      document.getElementById("media").innerHTML = `<video src="video1.mp4" controls autoplay></video>`;
-    }
-
-    // 打开AR模型
+    // 打开 AR 模型
     function openAR() {
-      document.getElementById("media").innerHTML = `
-        <a rel="ar" href="model.usdz">
-          <img src="1.png" alt="点击查看AR模型">
-        </a>`;
+      window.location.href = "model.usdz";
     }
 
-    // 启动
-    getLocation();
+    // 获取定位
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude.toFixed(5);
+          const lon = pos.coords.longitude.toFixed(5);
+          document.getElementById("status").innerText =
+            `✅ 已定位: ${lat}, ${lon}`;
+          getWeather(lat, lon);
+        },
+        err => {
+          document.getElementById("status").innerText = "❌ 定位失败，请检查浏览器权限";
+        }
+      );
+    } else {
+      document.getElementById("status").innerText = "❌ 当前浏览器不支持定位";
+    }
   </script>
 </body>
 </html>
